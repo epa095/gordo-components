@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-
+import itertools
 import logging
 
-from typing import Tuple, List, Dict, Union, Optional, Iterable
+from typing import Tuple, List, Dict, Union, Optional, Iterable, Callable
 from datetime import datetime
 
 import pandas as pd
@@ -27,6 +27,7 @@ class TimeSeriesDataset(GordoBaseDataset):
         target_tag_list: Optional[List[Union[str, Dict, SensorTag]]] = None,
         resolution: str = "10T",
         row_filter: str = "",
+        aggregation_methods: Union[str, List[str], Callable] = "mean",
         **_kwargs,
     ):
         """
@@ -56,6 +57,15 @@ class TimeSeriesDataset(GordoBaseDataset):
             Filter on the rows. Only rows satisfying the filter will be in the dataset.
             See :func:`gordo_components.dataset.filter_rows.pandas_filter_rows` for
             further documentation of the filter format.
+        aggregation_methods
+            Aggregation method(s) to use for the resampled timeseries. If a single
+            resample method is provided then the resulting dataframe will have names
+            identical to the names of the tags in tag_list. If several
+            aggregation-methods are provided then the resulting dataframe will have
+            as column names the tag-names with the aggregation method as
+            a suffix, separated by "_". For example `Tag 1_mean` and `Tag 1_max`
+            etc. See :py:func::`pandas.core.resample.Resampler#aggregate` for more
+            information on possible aggregation methods.
         _kwargs
         """
         self.from_ts = from_ts
@@ -67,6 +77,7 @@ class TimeSeriesDataset(GordoBaseDataset):
         self.resolution = resolution
         self.data_provider = data_provider
         self.row_filter = row_filter
+        self.aggregation_methods = aggregation_methods
 
         if not self.from_ts.tzinfo or not self.to_ts.tzinfo:
             raise ValueError(
@@ -82,13 +93,30 @@ class TimeSeriesDataset(GordoBaseDataset):
             tag_list=list(set(self.tag_list + self.target_tag_list)),
         )
         data: pd.DataFrame = self.join_timeseries(
-            series_iter, self.from_ts, self.to_ts, self.resolution
+            series_iter,
+            self.from_ts,
+            self.to_ts,
+            self.resolution,
+            aggregation_methods=self.aggregation_methods,
         )
         if self.row_filter:
             data = pandas_filter_rows(data, self.row_filter)
 
         x_tag_names = [tag.name for tag in self.tag_list]
         y_tag_names = [tag.name for tag in self.target_tag_list]
+
+        # If we have multiple aggregation methods then the column-names will be e.g
+        # "tag 1_max", not "tag 1", so we must do some stuff to pick out the right
+        # columns for X and Y
+        if isinstance(self.aggregation_methods, list):
+            x_tag_names = [
+                "".join(n)
+                for n in itertools.product(x_tag_names, ["_"], self.aggregation_methods)
+            ]
+            y_tag_names = [
+                "".join(n)
+                for n in itertools.product(y_tag_names, ["_"], self.aggregation_methods)
+            ]
 
         X = data[x_tag_names]
         y = data[y_tag_names] if self.target_tag_list else None
