@@ -66,37 +66,6 @@ class DatasetTestCase(unittest.TestCase):
         )
         self.assertLessEqual(all_in_frame.index[-1], pd.Timestamp(resampling_end))
 
-    def test_join_timeseries_agg_naming(self):
-        timeseries_list, latest_start, earliest_end = self.create_timeseries_list()
-
-        frequency = "7T"
-        resampling_start = dateutil.parser.isoparse("2017-12-25 06:00:00Z")
-        resampling_end = dateutil.parser.isoparse("2018-01-15 08:00:00Z")
-
-        # The default aggregation option provides the original column names
-        all_in_frame = GordoBaseDataset.join_timeseries(
-            timeseries_list, resampling_start, resampling_end, frequency
-        )
-        assert list(all_in_frame.columns) == ["ts-seconds", "ts-minutes", "ts-hours"]
-
-        # With several aggregation methods it appends the aggregation method to the
-        # column names
-        all_in_frame = GordoBaseDataset.join_timeseries(
-            timeseries_list,
-            resampling_start,
-            resampling_end,
-            frequency,
-            aggregation_methods=["mean", "max"],
-        )
-        assert list(all_in_frame.columns) == [
-            "ts-seconds_mean",
-            "ts-seconds_max",
-            "ts-minutes_mean",
-            "ts-minutes_max",
-            "ts-hours_mean",
-            "ts-hours_max",
-        ]
-
     def test_join_timeseries_nonutcstart(self):
         timeseries_list, latest_start, earliest_end = self.create_timeseries_list()
         frequency = "7T"
