@@ -127,15 +127,27 @@ class GordoBaseDataset:
             )
             # If several aggregation methods are provided, agg returns a dataframe
             # instead of a series. In this dataframe the column names are the
-            # aggregation methods, like "max" and "mean", so we have to prepend the
-            # original series names to the column names to get the names we desire.
+            # aggregation methods, like "max" and "mean", so we have to make a
+            # multi-index with the series-name as the top-level and the
+            # aggregation-method as the lower-level index
             if isinstance(
                 resampled, pd.DataFrame
             ):  # Several aggregation methods provided
-                resampled.columns = [
-                    f"{series.name}_{agg_col_name}"
-                    for agg_col_name in resampled.columns
-                ]
+                resampled.columns = pd.MultiIndex.from_product(
+                    [[series.name], resampled.columns],
+                    names=["tag", "aggregation_method"],
+                )
+            # For backwards-compatibility we *dont* return a multi-level index
+            # when we have a single resampling method.
+
+            # else:
+            #     resampled_s = resampled.to_frame()
+            #     resampled_s.columns = pd.MultiIndex.from_product(
+            #         [[series.name], [aggregation_methods]],
+            #         names=["tag", "aggregation_method"],
+            #     )
+            #     resampled = resampled_s
+
             filled = resampled.fillna(method="ffill")
             resampled_series.append(filled)
 

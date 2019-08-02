@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import itertools
 import logging
 
 from typing import Tuple, List, Dict, Union, Optional, Iterable, Callable
@@ -104,19 +103,6 @@ class TimeSeriesDataset(GordoBaseDataset):
 
         x_tag_names = [tag.name for tag in self.tag_list]
         y_tag_names = [tag.name for tag in self.target_tag_list]
-
-        # If we have multiple aggregation methods then the column-names will be e.g
-        # "tag 1_max", not "tag 1", so we must do some stuff to pick out the right
-        # columns for X and Y
-        if isinstance(self.aggregation_methods, list):
-            x_tag_names = [
-                "".join(n)
-                for n in itertools.product(x_tag_names, ["_"], self.aggregation_methods)
-            ]
-            y_tag_names = [
-                "".join(n)
-                for n in itertools.product(y_tag_names, ["_"], self.aggregation_methods)
-            ]
 
         X = data[x_tag_names]
         y = data[y_tag_names] if self.target_tag_list else None

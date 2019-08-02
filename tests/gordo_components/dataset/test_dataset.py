@@ -225,12 +225,12 @@ class TimeSeriesDatasetTest(unittest.TestCase):
         self.assertEqual(
             list(X.columns),
             [
-                "Tag 1_mean",
-                "Tag 1_max",
-                "Tag 2_mean",
-                "Tag 2_max",
-                "Tag 3_mean",
-                "Tag 3_max",
+                ("Tag 1", "mean"),
+                ("Tag 1", "max"),
+                ("Tag 2", "mean"),
+                ("Tag 2", "max"),
+                ("Tag 3", "mean"),
+                ("Tag 3", "max"),
             ],
         )
 
