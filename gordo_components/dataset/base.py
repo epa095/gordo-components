@@ -137,16 +137,14 @@ class GordoBaseDataset:
                     [[series.name], resampled.columns],
                     names=["tag", "aggregation_method"],
                 )
-            # For backwards-compatibility we *dont* return a multi-level index
-            # when we have a single resampling method.
 
-            # else:
-            #     resampled_s = resampled.to_frame()
-            #     resampled_s.columns = pd.MultiIndex.from_product(
-            #         [[series.name], [aggregation_methods]],
-            #         names=["tag", "aggregation_method"],
-            #     )
-            #     resampled = resampled_s
+            else:
+                resampled_s = resampled.to_frame()
+                resampled_s.columns = pd.MultiIndex.from_product(
+                    [[series.name], [aggregation_methods]],
+                    names=["tag", "aggregation_method"],
+                )
+                resampled = resampled_s
 
             filled = resampled.fillna(method="ffill")
             resampled_series.append(filled)
