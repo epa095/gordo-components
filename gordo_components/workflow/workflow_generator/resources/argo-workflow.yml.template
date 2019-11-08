@@ -550,8 +550,6 @@ spec:
       env:
       - name: OUTPUT_DIR
         value: "/gordo/models/{{project_name}}/{{project_version}}/{{'{{inputs.parameters.model-name}}'}}"
-      - name: MODEL_REGISTER_DIR
-        value: "/gordo/models/{{project_name}}/model_register"
       - name: MODEL_NAME
         value: {{ '"{{inputs.parameters.model-name}}" '}}
       - name: METADATA
