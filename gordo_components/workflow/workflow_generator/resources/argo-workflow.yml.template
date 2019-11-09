@@ -183,91 +183,90 @@ spec:
                       targetPort: 8086
 
   - name: gordo-influx-statefulset
-    steps:
-      - - name: apply-with-retries
-          template: apply-with-retries
-          arguments:
-            parameters:
-              - name: resource
-                value: |
-                  apiVersion: apps/v1
-                  kind: StatefulSet
-                  metadata:
-                    name: gordo-influx-{{project_name}}
-                    labels:
-                      app: gordo-influx-{{project_name}}
-                      app.kubernetes.io/name: influxd-deployment
-                      app.kubernetes.io/component: influxdb
-                      app.kubernetes.io/part-of: gordo
-                      app.kubernetes.io/managed-by: gordo
-                      applications.gordo.equinor.com/project-name: "{{project_name}}"
-                      applications.gordo.equinor.com/project-version: "{{project_version}}"
-                  {% if owner_references is defined %}
-                    ownerReferences: {{owner_references}}
-                  {% endif %}
-                  spec:
-                    serviceName: gordo-influx-{{project_name}}
-                    volumeClaimTemplates:
-                      - metadata:
-                          name: influx-storage-{{project_version}}
-                          labels:
-                            applications.gordo.equinor.com/project-name: "{{project_name}}"
-                            applications.gordo.equinor.com/project-version: "{{project_version}}"
-                            app.kubernetes.io/part-of: gordo
-                            app.kubernetes.io/managed-by: gordo
-                          annotations:
-                            applications.gordo.equinor.com/project-name: "{{project_name}}"
-                            applications.gordo.equinor.com/project-version: "{{project_version}}"
-                          {% if owner_references is defined %}
-                          ownerReferences: {{owner_references}}
-                          {% endif %}
-                        spec:
-                          accessModes: [ "ReadWriteOnce" ]
-                          storageClassName: "managed-premium"
-                          resources:
-                            requests:
-                              storage: 28Gi
-                    selector:
-                      matchLabels:
-                        app: gordo-influx-{{project_name}}
-                    replicas: 1
-                    template:
-                      metadata:
-                        labels:
-                          app: gordo-influx-{{project_name}}
-                        {% if owner_references is defined %}
-                        ownerReferences: {{owner_references}}
-                        {% endif %}
-                      spec:
-                        containers:
-                        - image: "influxdb:1.7.6-alpine"
-                          imagePullPolicy: "IfNotPresent"
-                          name: gordo-influx-{{project_name}}
-                          volumeMounts:
-                            - name: influx-storage-{{project_version}}
-                              mountPath: /var/lib/influxdb
-                          ports:
-                            - name: api
-                              containerPort: 8086
-                          resources:
-                            requests:
-                              memory: "{{ influx_resources_requests_memory }}M"
-                              cpu: "{{ influx_resources_requests_cpu }}m"
-                            limits:
-                              memory: "{{ influx_resources_limits_memory }}M"
-                              cpu: "{{ influx_resources_limits_cpu }}m"
-                          livenessProbe:
-                            httpGet:
-                              path: /ping
-                              port: api
-                            initialDelaySeconds: 30
-                            timeoutSeconds: 5
-                          readinessProbe:
-                            httpGet:
-                              path: /ping
-                              port: api
-                            initialDelaySeconds: 5
-                            timeoutSeconds: 1
+    retryStrategy:
+      limit: 5
+    resource:
+      action: apply
+      successCondition: status.readyReplicas > 0
+      manifest: |
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: gordo-influx-{{project_name}}
+          labels:
+            app: gordo-influx-{{project_name}}
+            app.kubernetes.io/name: influxd-deployment
+            app.kubernetes.io/component: influxdb
+            app.kubernetes.io/part-of: gordo
+            app.kubernetes.io/managed-by: gordo
+            applications.gordo.equinor.com/project-name: "{{project_name}}"
+            applications.gordo.equinor.com/project-version: "{{project_version}}"
+        {% if owner_references is defined %}
+          ownerReferences: {{owner_references}}
+        {% endif %}
+        spec:
+          serviceName: gordo-influx-{{project_name}}
+          volumeClaimTemplates:
+            - metadata:
+                name: influx-storage-{{project_version}}
+                labels:
+                  applications.gordo.equinor.com/project-name: "{{project_name}}"
+                  applications.gordo.equinor.com/project-version: "{{project_version}}"
+                  app.kubernetes.io/part-of: gordo
+                  app.kubernetes.io/managed-by: gordo
+                annotations:
+                  applications.gordo.equinor.com/project-name: "{{project_name}}"
+                  applications.gordo.equinor.com/project-version: "{{project_version}}"
+                {% if owner_references is defined %}
+                ownerReferences: {{owner_references}}
+                {% endif %}
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName: "managed-premium"
+                resources:
+                  requests:
+                    storage: 28Gi
+          selector:
+            matchLabels:
+              app: gordo-influx-{{project_name}}
+          replicas: 1
+          template:
+            metadata:
+              labels:
+                app: gordo-influx-{{project_name}}
+              {% if owner_references is defined %}
+              ownerReferences: {{owner_references}}
+              {% endif %}
+            spec:
+              containers:
+              - image: "influxdb:1.7.6-alpine"
+                imagePullPolicy: "IfNotPresent"
+                name: gordo-influx-{{project_name}}
+                volumeMounts:
+                  - name: influx-storage-{{project_version}}
+                    mountPath: /var/lib/influxdb
+                ports:
+                  - name: api
+                    containerPort: 8086
+                resources:
+                  requests:
+                    memory: "{{ influx_resources_requests_memory }}M"
+                    cpu: "{{ influx_resources_requests_cpu }}m"
+                  limits:
+                    memory: "{{ influx_resources_limits_memory }}M"
+                    cpu: "{{ influx_resources_limits_cpu }}m"
+                livenessProbe:
+                  httpGet:
+                    path: /ping
+                    port: api
+                  initialDelaySeconds: 30
+                  timeoutSeconds: 5
+                readinessProbe:
+                  httpGet:
+                    path: /ping
+                    port: api
+                  initialDelaySeconds: 5
+                  timeoutSeconds: 1
 
   - name: gordo-influx-database-creator
     retryStrategy:
@@ -430,33 +429,35 @@ spec:
 
 
   - name: gordo-postgres-service
-    retryStrategy:
-      limit: 5
-    resource:
-      action: apply
-      manifest: |
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: gordo-postgres-{{project_name}}
-          labels:
-            app: gordo-postgres-{{project_name}}
-            app.kubernetes.io/name: postgres
-            app.kubernetes.io/component: service
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          selector:
-            app: gordo-postgres-{{project_name}}
-          ports:
-          - port: 5432
-            name: api
-            targetPort: 5432
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value: |
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    name: gordo-postgres-{{project_name}}
+                    labels:
+                      app: gordo-postgres-{{project_name}}
+                      app.kubernetes.io/name: postgres
+                      app.kubernetes.io/component: service
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    selector:
+                      app: gordo-postgres-{{project_name}}
+                    ports:
+                    - port: 5432
+                      name: api
+                      targetPort: 5432
   - name: gordo-postgres-statefulset
     retryStrategy:
       limit: 5
@@ -655,234 +656,243 @@ spec:
           cpu: "{{ model_builder_resources_limits_cpu }}m"
 
   - name: gordo-server-hpa
-    retryStrategy:
-      limit: 5
     inputs:
       parameters:
       - name: host-name
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: autoscaling/v1
-        kind: HorizontalPodAutoscaler
-        metadata:
-          name: "gordoserver-scaler-{{project_name}}"
-          labels:
-            app: "{{'{{inputs.parameters.host-name}}'}}"
-            app.kubernetes.io/name: model-server
-            app.kubernetes.io/component: service
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: "{{'{{inputs.parameters.host-name}}'}}"
-          minReplicas: 1
-          maxReplicas: {{ max_server_replicas }}
-          targetCPUUtilizationPercentage: 25
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: autoscaling/v1
+                  kind: HorizontalPodAutoscaler
+                  metadata:
+                    name: "gordoserver-scaler-{{project_name}}"
+                    labels:
+                      app: "{{'{{inputs.parameters.host-name}}'}}"
+                      app.kubernetes.io/name: model-server
+                      app.kubernetes.io/component: service
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    scaleTargetRef:
+                      apiVersion: apps/v1
+                      kind: Deployment
+                      name: "{{'{{inputs.parameters.host-name}}'}}"
+                    minReplicas: 1
+                    maxReplicas: {{ max_server_replicas }}
+                    targetCPUUtilizationPercentage: 25
 
 
   - name: gordo-server-svc
-    retryStrategy:
-      limit: 5
     inputs:
       parameters:
       - name: host-name
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: "{{'{{inputs.parameters.host-name}}'}}"
-          annotations:
-            getambassador.io/config: |
-              ---
-              apiVersion: ambassador/v0
-              kind:  Mapping
-              name:  "{{'{{inputs.parameters.host-name}}'}}"
-              prefix: "/gordo/v0/{{project_name}}/.+"
-              prefix_regex: true
-              rewrite: ""
-              service: "{{'{{inputs.parameters.host-name}}'}}.{{namespace}}"
-              timeout_ms: 600000  # 10 mins
-          labels:
-            app: "{{'{{inputs.parameters.host-name}}'}}"
-            app.kubernetes.io/name: model-server
-            app.kubernetes.io/component: service
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          selector:
-            app: "{{'{{inputs.parameters.host-name}}'}}"
-          ports:
-          - port: 80
-            name: http-gordo
-            targetPort: http-api
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    name: "{{'{{inputs.parameters.host-name}}'}}"
+                    annotations:
+                      getambassador.io/config: |
+                        ---
+                        apiVersion: ambassador/v0
+                        kind:  Mapping
+                        name:  "{{'{{inputs.parameters.host-name}}'}}"
+                        prefix: "/gordo/v0/{{project_name}}/.+"
+                        prefix_regex: true
+                        rewrite: ""
+                        service: "{{'{{inputs.parameters.host-name}}'}}.{{namespace}}"
+                        timeout_ms: 600000  # 10 mins
+                    labels:
+                      app: "{{'{{inputs.parameters.host-name}}'}}"
+                      app.kubernetes.io/name: model-server
+                      app.kubernetes.io/component: service
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    selector:
+                      app: "{{'{{inputs.parameters.host-name}}'}}"
+                    ports:
+                    - port: 80
+                      name: http-gordo
+                      targetPort: http-api
 
   - name: gordo-server-istio
-    retryStrategy:
-      limit: 5
     inputs:
       parameters:
       - name: host-name
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: networking.istio.io/v1alpha3
-        kind: VirtualService
-        metadata:
-          name: "{{'{{inputs.parameters.host-name}}'}}"
-          annotations:
-          labels:
-            app: "{{'{{inputs.parameters.host-name}}'}}"
-            app.kubernetes.io/name: model-server
-            app.kubernetes.io/component: VirtualService
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          hosts:
-          - "*"
-          gateways:
-          - istio-system/istio-gateway
-          http:
-          - match:
-            - uri:
-                regex: "/gordo/v0/{{project_name}}/.+"
-            route:
-            - destination:
-                host: "{{'{{inputs.parameters.host-name}}'}}"
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value: |
+                  ---
+                  apiVersion: networking.istio.io/v1alpha3
+                  kind: VirtualService
+                  metadata:
+                    name: "{{'{{inputs.parameters.host-name}}'}}"
+                    annotations:
+                    labels:
+                      app: "{{'{{inputs.parameters.host-name}}'}}"
+                      app.kubernetes.io/name: model-server
+                      app.kubernetes.io/component: VirtualService
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    hosts:
+                    - "*"
+                    gateways:
+                    - istio-system/istio-gateway
+                    http:
+                    - match:
+                      - uri:
+                          regex: "/gordo/v0/{{project_name}}/.+"
+                      route:
+                      - destination:
+                          host: "{{'{{inputs.parameters.host-name}}'}}"
 
   # SVC to notify watchman that a model has been built and can be served by the ML Server
   # This should only be temporary, as it's not _really_ a service, but used to notify Watchman
   # that the model is built and should be able to be contacted via the main server.
   # Here until we create a 'GordoModel' CRD which can then notify that the model is built.
   - name: gordo-notification-svc
-    retryStrategy:
-      limit: 5
     inputs:
       parameters:
         - name: model-name
         - name: host-name
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: "gordo-ntf-{{project_name}}-{{'{{inputs.parameters.model-name}}'}}"
-          labels:
-            app: "model-stache-{{'{{inputs.parameters.model-name}}'}}"
-            app.kubernetes.io/name: model-server
-            app.kubernetes.io/component: service
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-            applications.gordo.equinor.com/model-name: "{{'{{inputs.parameters.model-name}}'}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          clusterIP: None
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value: |
+                  ---
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    name: "gordo-ntf-{{project_name}}-{{'{{inputs.parameters.model-name}}'}}"
+                    labels:
+                      app: "model-stache-{{'{{inputs.parameters.model-name}}'}}"
+                      app.kubernetes.io/name: model-server
+                      app.kubernetes.io/component: service
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                      applications.gordo.equinor.com/model-name: "{{'{{inputs.parameters.model-name}}'}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    clusterIP: None
 
 
   - name: gordo-server-deployment
-    retryStrategy:
-      limit: 5
     inputs:
       parameters:
       - name: host-name
-    resource:
-      action: apply
-      successCondition: status.readyReplicas > 0
-      manifest: |
-        ---
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: "{{'{{inputs.parameters.host-name}}'}}"
-          labels:
-            app: "{{'{{inputs.parameters.host-name}}'}}"
-            app.kubernetes.io/name: model-server-deployment
-            app.kubernetes.io/component: server
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: "{{'{{inputs.parameters.host-name}}'}}"
-          strategy:
-            type: Recreate
-          template:
-            metadata:
-              labels:
-                app: "{{'{{inputs.parameters.host-name}}'}}"
-            spec:
-              containers:
-                 - image: "{{ docker_registry }}/{{ docker_repository }}/gordo-model-server:{{gordo_version}}"
-                   imagePullPolicy: "IfNotPresent"
-                   name: "gordoserver-{{ project_name }}"
-                   volumeMounts:
-                     - mountPath: "/gordo"
-                       name: gstor
-                   ports:
-                     - name: http-api
-                       containerPort: 5555
-                   livenessProbe:
-                     httpGet:
-                       path: /healthcheck
-                       port: http-api
-                     initialDelaySeconds: 600 # We give it a lot of time to load the model and start up
-                     timeoutSeconds: 5
-                   readinessProbe:
-                     httpGet:
-                       path: /healthcheck
-                       port: http-api
-                     initialDelaySeconds: 5
-                     timeoutSeconds: 5
-                   env:
-                     - name: MODEL_COLLECTION_DIR
-                       value: /gordo/models/{{project_name}}/{{project_version}}
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: apps/v1
+                  kind: Deployment
+                  metadata:
+                    name: "{{'{{inputs.parameters.host-name}}'}}"
+                    labels:
+                      app: "{{'{{inputs.parameters.host-name}}'}}"
+                      app.kubernetes.io/name: model-server-deployment
+                      app.kubernetes.io/component: server
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    replicas: 1
+                    selector:
+                      matchLabels:
+                        app: "{{'{{inputs.parameters.host-name}}'}}"
+                    strategy:
+                      type: Recreate
+                    template:
+                      metadata:
+                        labels:
+                          app: "{{'{{inputs.parameters.host-name}}'}}"
+                      spec:
+                        containers:
+                           - image: "{{ docker_registry }}/{{ docker_repository }}/gordo-model-server:{{gordo_version}}"
+                             imagePullPolicy: "IfNotPresent"
+                             name: "gordoserver-{{ project_name }}"
+                             volumeMounts:
+                               - mountPath: "/gordo"
+                                 name: gstor
+                             ports:
+                               - name: http-api
+                                 containerPort: 5555
+                             livenessProbe:
+                               httpGet:
+                                 path: /healthcheck
+                                 port: http-api
+                               initialDelaySeconds: 600 # We give it a lot of time to load the model and start up
+                               timeoutSeconds: 5
+                             readinessProbe:
+                               httpGet:
+                                 path: /healthcheck
+                                 port: http-api
+                               initialDelaySeconds: 5
+                               timeoutSeconds: 5
+                             env:
+                               - name: MODEL_COLLECTION_DIR
+                                 value: /gordo/models/{{project_name}}/{{project_version}}
 
-                   resources:
-                     requests:
-                       memory: "{{ server_resources['requests']['memory'] }}M"
-                       cpu: "{{ server_resources['requests']['cpu'] }}m"
-                     limits:
-                       memory: "{{ server_resources['limits']['memory'] }}M"
-                       cpu: "{{ server_resources['limits']['cpu'] }}m"
-              terminationGracePeriodSeconds: 1
-              volumes:
-                - name: gstor
-                  persistentVolumeClaim:
-                    claimName: "azurefile"
+                             resources:
+                               requests:
+                                 memory: "{{ server_resources['requests']['memory'] }}M"
+                                 cpu: "{{ server_resources['requests']['cpu'] }}m"
+                               limits:
+                                 memory: "{{ server_resources['limits']['memory'] }}M"
+                                 cpu: "{{ server_resources['limits']['cpu'] }}m"
+                        terminationGracePeriodSeconds: 1
+                        volumes:
+                          - name: gstor
+                            persistentVolumeClaim:
+                              claimName: "azurefile"
 
   - name: gordo-server
     inputs:
@@ -1030,152 +1040,157 @@ spec:
             key: tenant_id_secret
 
   - name: gordo-watchman-svc
-    retryStrategy:
-      limit: 5
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: "gordo-watchman-{{project_name}}"
-          annotations:
-            getambassador.io/config: |
-              ---
-              apiVersion: ambassador/v0
-              kind:  Mapping
-              name:  "gordo-watchman-{{project_name}}"
-              prefix: "/gordo/v0/{{project_name}}/$"
-              prefix_regex: true
-              service: "gordo-watchman-{{project_name}}.{{namespace}}"
-              timeout_ms: 600000  # 10 mins
-          labels:
-            app: "gordo-watchman-{{project_name}}"
-            app.kubernetes.io/name: watchman
-            app.kubernetes.io/component: service
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          selector:
-            app: "gordo-watchman-{{project_name}}"
-          ports:
-          - port: 80
-            name: http-gordo
-            targetPort: http-api
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    name: "gordo-watchman-{{project_name}}"
+                    annotations:
+                      getambassador.io/config: |
+                        ---
+                        apiVersion: ambassador/v0
+                        kind:  Mapping
+                        name:  "gordo-watchman-{{project_name}}"
+                        prefix: "/gordo/v0/{{project_name}}/$"
+                        prefix_regex: true
+                        service: "gordo-watchman-{{project_name}}.{{namespace}}"
+                        timeout_ms: 600000  # 10 mins
+                    labels:
+                      app: "gordo-watchman-{{project_name}}"
+                      app.kubernetes.io/name: watchman
+                      app.kubernetes.io/component: service
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    selector:
+                      app: "gordo-watchman-{{project_name}}"
+                    ports:
+                    - port: 80
+                      name: http-gordo
+                      targetPort: http-api
 
 
 
   - name: gordo-watchman-istio
-    retryStrategy:
-      limit: 5
-    resource:
-      action: apply
-      manifest: |
-        ---
-        apiVersion: networking.istio.io/v1alpha3
-        kind: VirtualService
-        metadata:
-          name: "gordo-watchman-{{project_name}}"
-          annotations:
-          labels:
-            app: "gordo-watchman-{{project_name}}"
-            app.kubernetes.io/name: watchman
-            app.kubernetes.io/component: VirtualService
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          hosts:
-          - "*"
-          gateways:
-          - istio-system/istio-gateway
-          http:
-          - match:
-            - uri:
-                regex: "/gordo/v0/{{project_name}}/$"
-            rewrite:
-              uri: "/"
-            route:
-            - destination:
-                host: "gordo-watchman-{{project_name}}"
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: networking.istio.io/v1alpha3
+                  kind: VirtualService
+                  metadata:
+                    name: "gordo-watchman-{{project_name}}"
+                    annotations:
+                    labels:
+                      app: "gordo-watchman-{{project_name}}"
+                      app.kubernetes.io/name: watchman
+                      app.kubernetes.io/component: VirtualService
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    hosts:
+                    - "*"
+                    gateways:
+                    - istio-system/istio-gateway
+                    http:
+                    - match:
+                      - uri:
+                          regex: "/gordo/v0/{{project_name}}/$"
+                      rewrite:
+                        uri: "/"
+                      route:
+                      - destination:
+                          host: "gordo-watchman-{{project_name}}"
 
 
 
   - name: gordo-watchman-deployment
-    retryStrategy:
-      limit: 5
-    resource:
-      action: apply
-      successCondition: status.readyReplicas > 0
-      manifest: |
-        ---
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: "gordo-watchman-{{project_name}}"
-          labels:
-            app: "gordo-watchman-{{project_name}}"
-            app.kubernetes.io/name: watchman-deployment
-            app.kubernetes.io/component: watchman
-            app.kubernetes.io/part-of: gordo
-            app.kubernetes.io/managed-by: gordo
-            applications.gordo.equinor.com/project-name: "{{project_name}}"
-            applications.gordo.equinor.com/project-version: "{{project_version}}"
-          {% if owner_references is defined %}
-          ownerReferences: {{owner_references}}
-          {% endif %}
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: "gordo-watchman-{{project_name}}"
-          strategy:
-            type: Recreate
-          template:
-            metadata:
-              labels:
-                app: "gordo-watchman-{{project_name}}"
-            spec:
-              containers:
-                 - image: "{{ docker_registry }}/{{ docker_repository }}/gordo-watchman:{{gordo_version}}"
-                   imagePullPolicy: "IfNotPresent"
-                   name: "gordo-watchman-{{project_name}}"
-                   ports:
-                     - name: http-api
-                       containerPort: 5556
-                   readinessProbe:
-                     httpGet:
-                       path: /healthcheck
-                       port: http-api
-                     initialDelaySeconds: 5
-                     timeoutSeconds: 2
-                   env:
-                     - name: TARGET_NAMES
-                       value: "{{target_names}}"
-                     - name: PROJECT_NAME
-                       value: {{project_name}}
-                     - name: PROJECT_VERSION
-                       value: "{{project_version}}"
-                     - name: AMBASSADOR_NAMESPACE
-                       value: "{{ambassador_namespace}}"
-                   resources:
-                     requests:
-                       memory: 500M
-                       cpu: 10m
-                     limits:
-                       memory: 1G
-                       cpu: 1
-              terminationGracePeriodSeconds: 1
+    steps:
+      - - name: apply-with-retries
+          template: apply-with-retries
+          arguments:
+            parameters:
+              - name: resource
+                value:  |
+                  ---
+                  apiVersion: apps/v1
+                  kind: Deployment
+                  metadata:
+                    name: "gordo-watchman-{{project_name}}"
+                    labels:
+                      app: "gordo-watchman-{{project_name}}"
+                      app.kubernetes.io/name: watchman-deployment
+                      app.kubernetes.io/component: watchman
+                      app.kubernetes.io/part-of: gordo
+                      app.kubernetes.io/managed-by: gordo
+                      applications.gordo.equinor.com/project-name: "{{project_name}}"
+                      applications.gordo.equinor.com/project-version: "{{project_version}}"
+                    {% if owner_references is defined %}
+                    ownerReferences: {{owner_references}}
+                    {% endif %}
+                  spec:
+                    replicas: 1
+                    selector:
+                      matchLabels:
+                        app: "gordo-watchman-{{project_name}}"
+                    strategy:
+                      type: Recreate
+                    template:
+                      metadata:
+                        labels:
+                          app: "gordo-watchman-{{project_name}}"
+                      spec:
+                        containers:
+                           - image: "{{ docker_registry }}/{{ docker_repository }}/gordo-watchman:{{gordo_version}}"
+                             imagePullPolicy: "IfNotPresent"
+                             name: "gordo-watchman-{{project_name}}"
+                             ports:
+                               - name: http-api
+                                 containerPort: 5556
+                             readinessProbe:
+                               httpGet:
+                                 path: /healthcheck
+                                 port: http-api
+                               initialDelaySeconds: 5
+                               timeoutSeconds: 2
+                             env:
+                               - name: TARGET_NAMES
+                                 value: "{{target_names}}"
+                               - name: PROJECT_NAME
+                                 value: {{project_name}}
+                               - name: PROJECT_VERSION
+                                 value: "{{project_version}}"
+                               - name: AMBASSADOR_NAMESPACE
+                                 value: "{{ambassador_namespace}}"
+                             resources:
+                               requests:
+                                 memory: 500M
+                                 cpu: 10m
+                               limits:
+                                 memory: 1G
+                                 cpu: 1
+                        terminationGracePeriodSeconds: 1
 
 
   - name: gordo-watchman
